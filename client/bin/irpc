@@ -1,0 +1,252 @@
+#!/bin/sh
+
+LOCAL_SAMBA_PATH="/home"
+REMOTE_SAMBA_PATH="root"
+REMOTE_SERVER_IP="192.168.229.1"
+LCOAL_IP="192.168.229.206"
+
+GIT_ROOTDIR=
+
+get_git_rootdir()
+{
+    local pwd=`pwd`
+    if [ "x${pwd}" = "x/" ];then
+        return 1
+    fi
+    
+    if [ -f .git/config ];then
+        GIT_ROOTDIR=`pwd`
+        echo "rootdir is [${GIT_ROOTDIR}]"
+        return 0
+    fi
+    
+    cd ..
+    get_git_rootdir
+}
+
+exec_notepad()
+{
+    local ip=$1
+    local file_path=$3
+    local dir_name=
+    local file_name=
+    local path=
+    
+    [ "x${file_path}" != "x" ] || return 1
+    [ -f ${file_path} ] || return 1
+	
+    which notepadqq 1>/dev/null 2>&1
+    if [ $? -eq 0 ];then
+        notepadqq ${file_path} 1>/dev/null 2>&1 &
+        return 0
+    fi
+    
+    file_name=`basename ${file_path}`
+    dir_name=`dirname ${file_path}`
+
+    [ "x${dir_name}" != "x" ] || dir_name=`pwd`
+	
+	[ "x${ip}" != "x" ] || return 1
+    
+    cd ${dir_name} || return 1
+    path="`pwd -P | grep "^${LOCAL_SAMBA_PATH}" | sed "s#${LOCAL_SAMBA_PATH}#${REMOTE_SAMBA_PATH}#g" | sed 's/\//\\\\/g'`"
+    [ "x${path}" != "x" ] || return 1
+    
+    #socket_client "notepad:${ip}:${path}\\${file_name}"
+    irpc_client -i "${ip}" -s "${REMOTE_SERVER_IP}" -c "notepad" -p "\\\\${ip}\\${path}\\${file_name}"
+
+    cd - 1>/dev/null
+    return $?
+}
+
+exec_explorer()
+{
+    local ip=$1
+    local dir_name=$3
+    local path=
+
+    [ "x${dir_name}" != "x" ] || dir_name=`pwd`
+    [ -d ${dir_name} ] || return 1
+    
+    which nautilus 1>/dev/null 2>&1
+    if [ $? -eq 0 ];then
+        nautilus --browser ${dirname} 1>/dev/null 2>&1
+        return $?
+    fi
+
+    [ "x${ip}" != "x" ] || return 1
+
+    cd ${dir_name} || return 1
+    path="`pwd -P | grep "^${LOCAL_SAMBA_PATH}" | sed "s#${LOCAL_SAMBA_PATH}#${REMOTE_SAMBA_PATH}#g" | sed 's/\//\\\\/g'`"
+    [ "x${path}" != "x" ] || return 1
+
+    #socket_client "explorer:${ip}:${path}"
+    irpc_client -i "${ip}" -s "${REMOTE_SERVER_IP}" -c "explorer" -p "\\\\${ip}\\${path}"
+
+    cd - 1>/dev/null
+    return $?
+}
+
+exec_emeditor()
+{
+    local ip=$1
+    local file_path=$3
+    local dir_name=
+    local file_name=
+    local path=
+
+    [ "x${ip}" != "x" ] || return 1
+    [ "x${file_path}" != "x" ] || return 1
+    [ -f ${file_path} ] || return 1
+
+    file_name=`basename ${file_path}`
+    dir_name=`dirname ${file_path}`
+
+    [ "x${dir_name}" != "x" ] || dir_name=`pwd`
+
+    cd ${dir_name} || return 1
+    path="`pwd -P | grep "^${LOCAL_SAMBA_PATH}" | sed "s#${LOCAL_SAMBA_PATH}#${REMOTE_SAMBA_PATH}#g" | sed 's/\//\\\\/g'`"
+    [ "x${path}" != "x" ] || return 1
+
+    #socket_client "emeditor:${ip}:${path}\\${file_name}"
+    irpc_client -i "${ip}" -s "${REMOTE_SERVER_IP}" -c "emeditor" -p "\\\\${ip}\\${path}\\${file_name}"
+
+    cd - 1>/dev/null
+    return $?
+}
+
+exec_bcompare()
+{
+    local ip=$1
+    local file_path_1=$3
+    local file_path_2=$4
+    local path_1=
+    local path_2=
+    
+    [ "x${ip}" != "x" ] || return 1
+    [ "x${file_path_1}" != "x" -a "x${file_path_2}" != "x" ] || return 1
+    [ -f ${file_path_1} -o -d ${file_path_1} ] || return 1
+    [ -f ${file_path_2} -o -d ${file_path_2} ] || return 1
+    
+    file_name_1=`basename ${file_path_1}`
+    file_name_2=`basename ${file_path_2}`
+    dir_name_1=`dirname ${file_path_1}`
+    dir_name_2=`dirname ${file_path_2}`
+
+    [ "x${dir_name_1}" != "x" ] || dir_name_1=`pwd`
+    [ "x${dir_name_2}" != "x" ] || dir_name_2=`pwd`
+
+    cd ${dir_name_1} || return 1
+    path_1="`pwd -P | grep "^${LOCAL_SAMBA_PATH}" | sed "s#${LOCAL_SAMBA_PATH}#${REMOTE_SAMBA_PATH}#g" | sed 's/\//\\\\/g'`\\${file_name_1}"
+    cd -
+    cd ${dir_name_2} || return 1
+    path_2="`pwd -P | grep "^${LOCAL_SAMBA_PATH}" | sed "s#${LOCAL_SAMBA_PATH}#${REMOTE_SAMBA_PATH}#g" | sed 's/\//\\\\/g'`\\${file_name_2}"
+    [ "x${path_1}" != "x" -a "x${path_2}" != "x" ] || return 1
+
+    irpc_client -i "${ip}" -s "${REMOTE_SERVER_IP}" -c "bcompare" -p "\\\\${ip}\\${path_1} \\\\${ip}\\${path_2}" || return 1
+
+    cd - 1>/dev/null
+    return $?
+}
+
+exec_tortoise_git()
+{
+    local ip=$1
+    local file_path=$3
+    local dir_name=
+    local file_name=
+    local path=
+
+    [ "x${ip}" != "x" ] || return 1
+    if [ "x${file_path}" = "x" ];then
+        get_git_rootdir || return 1
+        file_path=${GIT_ROOTDIR}
+    fi
+    [ -f ${file_path} -o -d ${file_path} ] || return 1
+    
+    file_name=`basename ${file_path}`
+    dir_name=`dirname ${file_path}`
+
+    [ "x${dir_name}" != "x" ] || dir_name=`pwd`
+
+    cd ${dir_name} || return 1
+    path="`pwd -P | grep "^${LOCAL_SAMBA_PATH}" | sed "s#${LOCAL_SAMBA_PATH}#${REMOTE_SAMBA_PATH}#g" | sed 's/\//\\\\/g'`\\${file_name}"
+    [ "x${path}" != "x" ] || return 1
+
+    irpc_client -i "${ip}" -s "${REMOTE_SERVER_IP}" -c "tortoisegit" -p "\\\\${ip}\\${path}" || return 1
+
+    cd - 1>/dev/null
+    return $?
+}
+
+exec_vscode()
+{
+    local ip=$1
+    local cmd=$2
+    local dir_name=$3
+    local path=
+
+    [ "x${ip}" != "x" ] || return 1
+    [ "x${dir_name}" != "x" ] || dir_name=`pwd`
+    [ -d ${dir_name} ] || return 1
+
+    cd ${dir_name} || return 1
+    path="`pwd -P | grep "^${LOCAL_SAMBA_PATH}" | sed "s#${LOCAL_SAMBA_PATH}#${REMOTE_SAMBA_PATH}#g" | sed 's/\//\\\\/g'`"
+    [ "x${path}" != "x" ] || return 1
+
+    #socket_client "vscode:${ip}:${path}"
+    irpc_client -i "${ip}" -s "${REMOTE_SERVER_IP}" -c "${cmd}" -p "\\\\${ip}\\${path}"
+
+    cd - 1>/dev/null
+    return $?
+}
+
+exec_search()
+{
+    local cmd=$2
+    local value="$@"
+    [ "x${value}" != "x" ] || exit 1
+    #socket_client "search:${value}"
+    irpc_client -s "${REMOTE_SERVER_IP}" -c "search" -p "${value#*${cmd} }"
+}
+
+handle_cmd()
+{
+    local cmd=$2
+    case ${cmd} in
+    notepad)
+        exec_notepad $@
+        ;;
+    explorer)
+        exec_explorer $@
+        ;;
+    emeditor)
+        exec_emeditor $@
+        ;;
+    bcompare)
+        exec_bcompare $@
+        ;;
+    tortoise_git)
+        exec_tortoise_git $@
+        ;;
+    vscode|atom)
+        exec_vscode $@
+        ;;
+    search)
+        exec_search $@
+        ;;
+    *)
+        return 1
+        ;;
+    esac
+}
+
+exec_cmd()
+{
+    local para=$@
+    handle_cmd "${LCOAL_IP}" ${para}
+}
+
+exec_cmd $@ || exit 1
+
+echo "send $1 cmd success"
