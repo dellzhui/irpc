@@ -1,0 +1,90 @@
+#!/bin/sh
+
+PATCH_ROOT_DIR=/share/patch/git
+PATCH_FILE=aaa.patch
+
+ROOTDIR=`pwd`
+
+get_rootdir()
+{
+    local pwd=`pwd`
+    if [ "x${pwd}" = "x/" ];then
+        return 1
+    fi
+    
+    if [ -f .git/config ];then
+        ROOTDIR=`pwd`
+        cd ${ROOTDIR}
+        return 0
+    fi
+    
+    cd ..
+    get_rootdir
+}
+
+gen_files()
+{
+    cd ${ROOTDIR}
+    rm -rf ${PATCH_ROOT_DIR} 1>/dev/null 2>&1
+    mkdir -p ${PATCH_ROOT_DIR}/old 1>/dev/null 2>&1
+    if [ $? -ne 0 ];then
+        PATCH_ROOT_DIR="tmp/${PATCH_ROOT_DIR}"
+        mkdir -p ${PATCH_ROOT_DIR}/old || return 1
+    fi
+    mkdir -p ${PATCH_ROOT_DIR}/new || return 1
+
+    #local AAA=`sed -n '/^--- /,/^+++ /p' ${PATCH_FILE}  | grep "^--- a/" | sed 's/^--- a\///g'`
+    #local BBB=`sed -n '/^--- /,/^+++ /p' ${PATCH_FILE}  | grep "^+++ b/" | sed 's/^+++ b\///g'`
+    local AAA=`grep "diff --git a/.* b/" ${PATCH_FILE}  | awk '{print $3}' | sed 's/^a\///g'`
+    local BBB=`grep "diff --git a/.* b/" ${PATCH_FILE}  | awk '{print $4}' | sed 's/^b\///g'`
+
+    [ "x${AAA}" = "x" -a "x${BBB}" = "x" ] && return 1
+    
+    mv ${PATCH_FILE} ${PATCH_ROOT_DIR}/old/ || return 1
+
+    for j in ${BBB};do
+        local file_new=${j##*/}
+        local dir_new="${PATCH_ROOT_DIR}/new"
+        echo ${j} | grep '/' 1>/dev/null 2>&1 && dir_new="${dir_new}/${j%/*}"
+        mkdir -p ${dir_new}
+        if [ -f ${j} ];then
+            cp -af ${j} ${dir_new}/${file_new} || return 1
+        else
+            echo "${j}, file type error]"
+            return 1
+        fi
+    done
+    
+    cp -rf ${PATCH_ROOT_DIR}/new/* ${PATCH_ROOT_DIR}/old/
+    cd ${PATCH_ROOT_DIR}/old/
+    patch -p1 -R < ${PATCH_FILE}
+    if [ $? -ne 0 ];then
+        rm -f ${PATCH_ROOT_DIR}/old/${PATCH_FILE}
+        return 1
+    fi
+    rm -f ${PATCH_ROOT_DIR}/old/${PATCH_FILE}
+
+    which bcompare 1>/dev/null 2>&1
+    if [ $? -eq 0 ];then
+        bcompare ${PATCH_ROOT_DIR}/old ${PATCH_ROOT_DIR}/new &
+    else
+        irpc bcompare ${PATCH_ROOT_DIR}/old ${PATCH_ROOT_DIR}/new
+    fi
+    
+    return 0
+}
+
+get_rootdir || exit 1
+
+git diff . > ${PATCH_FILE} || exit 1
+
+gen_files
+
+if [ $? -ne 0 ];then
+    rm -rf ${PATCH_ROOT_DIR}
+    echo "gen failed"
+    exit 1
+fi
+
+echo "gen succeed"
+

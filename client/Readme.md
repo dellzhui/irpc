@@ -1,6 +1,6 @@
 ## 安装方法
 
-1、将tar里的四个文件解压到当前目录，然后将当前目录加入PATH
+1、将bin里的四个文件复制到当前目录，然后将当前目录加入PATH
 ```shell
 export PATH="`pwd`:${PATH}"
 echo "export PATH=\"`pwd`:${PATH}\"" >> ~/.bashrc

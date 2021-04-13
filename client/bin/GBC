@@ -1,0 +1,148 @@
+#!/bin/sh
+
+CUR_BRANCH=
+NEW_BRANCH=
+CURDIR=`pwd`
+ROOTDIR=`pwd`
+RESET_FLAG=0
+RESERVE_FLAG=0
+UNSTAGED_FILES=
+STAGED_FILES=
+
+COMMIT_SHA=$1
+
+get_rootdir()
+{
+    local pwd=`pwd`
+    if [ "x${pwd}" = "x/" ];then
+        return 1
+    fi
+    
+    if [ -f .git/config ];then
+        ROOTDIR=`pwd`
+        cd ${ROOTDIR}
+        CUR_BRANCH=`git branch  | grep "^\* " | sed 's/^\* //g'`
+        NEW_BRANCH="${CUR_BRANCH}_new"
+        echo "rootdir is [${ROOTDIR}]"
+        return 0
+    fi
+    
+    cd ..
+    get_rootdir
+}
+
+set_modifed_files()
+{
+    STAGED_FILES=`git status -uno | sed -n '/^Changes to be committed:/,/^Changes not staged for commit:/p' | grep ":   " | awk '{print $NF}'`
+    UNSTAGED_FILES=`git status -uno | sed -n '/Changes not staged for commit:/,//p' | grep ":   " | sed 's/^.*:   //g'`
+}
+
+check_unstaged_files()
+{
+    local file=$1
+    local i=
+    
+    for i in ${STAGED_FILES};do
+        [ "x${file}" = "x${i}" ] && return 1
+    done
+    return 0
+}
+
+get_unstaged_flag()
+{
+    git status | grep "^Changes to be committed:" 1>/dev/null 2>&1
+    if [ $? -eq 0 ];then
+        return 0
+    fi
+    
+    git status | grep "^Changes not staged for commit:" 1>/dev/null 2>&1
+    if [ $? -eq 0 ];then
+        return 0
+    fi
+    echo "no modified file found"
+    return 1
+}
+
+gen_branch()
+{
+    [ "x${CUR_BRANCH}" != "x" ] || return 1
+    
+    cd ${ROOTDIR}
+    get_unstaged_flag
+    if [ $? -eq 0 ];then
+        set_modifed_files
+        git commit . -m "backup" 1>/dev/null 2>&1
+        if [ $? -eq 0 ];then
+            RESET_FLAG=1
+            [ "x${COMMIT_SHA}" != "x" ] || COMMIT_SHA=`git log | head -n1 | awk '{print $2}'`
+        fi
+    fi
+    
+    if [ "x${COMMIT_SHA}" = "x" ];then
+        echo "no commit set";
+        return 1
+    fi
+    
+    git checkout -b ${NEW_BRANCH} || return 1
+    RESERVE_FLAG=1
+    echo "COMMIT_SHA is [${COMMIT_SHA}]"
+    return 0
+}
+
+gen_bc()
+{
+    gen_branch || return 1
+    
+    cd ${ROOTDIR}
+    if [ "x${COMMIT_SHA}" != "x" ];then
+        rm -rf /tmp/${COMMIT_SHA}
+        git reset --hard ${COMMIT_SHA} || return 1
+    fi
+    git format-patch -1 -o /tmp/${COMMIT_SHA}/ || return 1
+    mv /tmp/${COMMIT_SHA}/*.patch /tmp/${COMMIT_SHA}/${COMMIT_SHA}.patch || return 1
+    git reset --hard HEAD~1 || return 1
+    GV /tmp/${COMMIT_SHA}/${COMMIT_SHA}.patch 1>/dev/null 2>/dev/null || return 1
+}
+
+reserve_branch()
+{
+    local i=
+    cd ${ROOTDIR}
+    if [ "x${RESERVE_FLAG}" = "x1" ];then
+        git checkout ${CUR_BRANCH} || return 1
+        git branch -D ${NEW_BRANCH} || return 1
+    fi
+    [ "x${COMMIT_SHA}" != "x" ] && rm -rf /tmp/${COMMIT_SHA}
+    
+    if [ "x${RESET_FLAG}" = "x1" ];then
+        git reset --soft HEAD~1 || return 1
+        for i in ${UNSTAGED_FILES};do
+            check_unstaged_files ${i}
+            if [ $? -eq 0 ];then
+                git reset ${i} 1>/dev/null 2>&1 || return 1
+            fi
+        done
+    fi
+    return 0
+}
+
+get_rootdir || exit 1
+
+gen_bc
+if [ $? -ne 0 ];then
+    echo "gen bc failed"
+else
+    echo "gen bc succeed"
+fi
+
+reserve_branch
+if [ $? -ne 0 ];then
+    echo "reserve branch failed"
+    echo -e "\n\n**********WARNING:current branch ${CUR_BRANCH} maybe changed!!!!!!!!!!!!!**********\n"
+else
+    echo "reserve branch succeed"
+fi
+
+cd ${CURDIR}
+
+

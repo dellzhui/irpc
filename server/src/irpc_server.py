@@ -51,7 +51,9 @@ class IRPCTCPHandler(socketserver.BaseRequestHandler):
             if(content['cmd_name'] == 'explorer'):
                 cmd = 'start /b explorer {}'.format(content['paras'])
             elif(content['cmd_name'] == 'notepad'):
-                cmd = 'start /b {} {}'.format(self.config['notepad_path'], content['paras'])
+                cmd = 'start /b "" "{}" {}'.format(self.config['notepad_path'], content['paras'])
+            elif (content['cmd_name'] == 'bcompare'):
+                cmd = 'start /b "" "{}" {}'.format(self.config['bc_path'], content['paras'])
             print('cmd is {}'.format(cmd))
             return cmd
         except Exception as err:
@@ -72,32 +74,51 @@ class IRPCGui:
         self.root.title('iRPC')
 
         self.e_Notepad = Entry(self.root)
+        self.e_BCompare = Entry(self.root)
         self.start_button = Button(self.root, text='启动', width=10, command=self.submit)
         self.started_button = Button(self.root, text='已启动', width=10)
         self.restart_button = Button(self.root, text='重启', width=10, command=self.restart)
 
-        self.e_Notepad.insert(0, '输入文本编辑器路径')
+        self.e_Notepad.insert(0, '文本编辑器路径')
         self.e_Notepad.grid(row=0, column=0, padx=10, pady=5)
+        self.e_BCompare.insert(0, 'Beyond Compare路径')
+        self.e_BCompare.grid(row=1, column=0, padx=10, pady=5)
 
-        Button(self.root, text='浏览', width=10, command=self.open_src_file).grid(row=0, column=1, sticky=W, padx=10, pady=5)
+        Button(self.root, text='选择文本编辑器', width=20, command=self.open_src_file).grid(row=0, column=1, sticky=W, padx=10, pady=5)
+        Button(self.root, text='选择Beyond Compare', width=20, command=self.open_bc_file).grid(row=1, column=1, sticky=W, padx=10, pady=5)
 
         self.server = socketserver.TCPServer((HOST, PORT), IRPCTCPHandler)
 
         self.config = IRPCConfig.get_config()
-        if(self.config == None or self.config == {} or self.config['notepad_path'] == None or self.config['notepad_path'] == ''):
-            self.config = {}
-        else:
+        self.config = self.config if(self.config != None) else {}
+
+        if ('bc_path' in self.config and self.config['bc_path'] != None and self.config['bc_path'] != ''):
+            self.e_BCompare.delete(0, END)
+            self.e_BCompare.insert(0, self.config['bc_path'])
+        if('notepad_path' in self.config and self.config['notepad_path'] != None and self.config['notepad_path'] != ''):
             self.e_Notepad.delete(0, END)
             self.e_Notepad.insert(0, self.config['notepad_path'])
             self.submit()
 
     def open_src_file(self, dir='.'):
         try:
-            notepad_path = filedialog.askopenfilename(title='open src file', initialdir=dir, filetypes=[('All Files', '*')])
+            notepad_path = filedialog.askopenfilename(title='选择文本编辑器程序', initialdir=dir, filetypes=[('All Files', '*')])
             if(notepad_path != None and notepad_path != ''):
                 self.e_Notepad.delete(0, END)
                 self.e_Notepad.insert(0, notepad_path)
                 self.config['notepad_path'] = notepad_path
+                IRPCConfig.update_config(self.config)
+                self.start_button.grid(row=4, column=0, sticky=W, padx=10, pady=5)
+        except Exception as err:
+            print('open_src_file err:[' + str(err) + ']')
+
+    def open_bc_file(self, dir='.'):
+        try:
+            file_path = filedialog.askopenfilename(title='选择Beyond Compare', initialdir=dir, filetypes=[('All Files', '*')])
+            if(file_path != None and file_path != ''):
+                self.e_BCompare.delete(0, END)
+                self.e_BCompare.insert(0, file_path)
+                self.config['bc_path'] = file_path
                 IRPCConfig.update_config(self.config)
                 self.start_button.grid(row=4, column=0, sticky=W, padx=10, pady=5)
         except Exception as err:

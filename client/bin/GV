@@ -1,0 +1,71 @@
+#!/bin/sh
+
+PATCH_ROOT_DIR=/share/patch/git
+
+PATCH_FILE=$1
+
+gen_files()
+{
+    rm -rf ${PATCH_ROOT_DIR} 1>/dev/null 2>&1
+    mkdir -p ${PATCH_ROOT_DIR}/old 1>/dev/null 2>&1
+    if [ $? -ne 0 ];then
+        PATCH_ROOT_DIR="tmp/${PATCH_ROOT_DIR}"
+        mkdir -p ${PATCH_ROOT_DIR}/old || return 1
+    fi
+    mkdir -p ${PATCH_ROOT_DIR}/new || return 1
+
+    #local AAA=`sed -n '/^--- /,/^+++ /p' ${PATCH_FILE}  | grep "^--- a/" | sed 's/^--- a\///g'`
+    #local BBB=`sed -n '/^--- /,/^+++ /p' ${PATCH_FILE}  | grep "^+++ b/" | sed 's/^+++ b\///g'`
+    local AAA=`grep "diff --git a/.* b/" ${PATCH_FILE}  | awk '{print $3}' | sed 's/^a\///g'`
+    local BBB=`grep "diff --git a/.* b/" ${PATCH_FILE}  | awk '{print $4}' | sed 's/^b\///g'`
+
+    [ "x${AAA}" = "x" -a "x${BBB}" = "x" ] && return 1
+
+    for i in ${AAA};do
+        local file_old=${i##*/}
+        local dir_old="${PATCH_ROOT_DIR}/old"
+        echo ${i} | grep '/' 1>/dev/null 2>&1 && dir_old="${dir_old}/${i%/*}"
+        
+        
+        mkdir -p ${dir_old}
+        if [ -f ${i} ];then
+            cp -f ${i} ${dir_old}/${file_old} || return 1
+        fi
+    done
+
+    GA ${PATCH_FILE} || return 1
+
+    for j in ${BBB};do
+        local file_new=${j##*/}
+        local dir_new="${PATCH_ROOT_DIR}/new"
+        echo ${j} | grep '/' 1>/dev/null 2>&1 && dir_new="${dir_new}/${j%/*}"
+        mkdir -p ${dir_new}
+        if [ -f ${j} ];then
+            cp -f ${j} ${dir_new}/${file_new} || return 1
+        fi
+    done
+
+    GREVERT
+
+    which bcompare 1>/dev/null 2>&1
+    if [ $? -eq 0 ];then
+        #explorer ${PATCH_ROOT_DIR}
+        bcompare ${PATCH_ROOT_DIR}/old ${PATCH_ROOT_DIR}/new &
+    else
+        irpc bcompare ${PATCH_ROOT_DIR}/old ${PATCH_ROOT_DIR}/new
+    fi
+    return 0
+}
+
+[ "x${PATCH_FILE}" != "x" ] || exit 1
+[ -f ${PATCH_FILE} ] || exit 1
+
+gen_files
+
+if [ $? -ne 0 ];then
+    rm -rf ${PATCH_ROOT_DIR}
+    echo "gen failed"
+    exit 1
+fi
+
+echo "gen succeed"
