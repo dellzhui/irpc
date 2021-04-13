@@ -1,6 +1,7 @@
 ## 安装方法
 
 1、将bin里的四个文件复制到当前目录，然后将当前目录加入PATH
+
 ```shell
 export PATH="`pwd`:${PATH}"
 echo "export PATH=\"`pwd`:${PATH}\"" >> ~/.bashrc
@@ -53,3 +54,42 @@ E
 ```shell
 N 文件名
 ```
+
+
+
+3、使用Beyond Compare比较两个文件或目录
+
+```shell
+irpc bcompare $1 $2
+```
+
+
+
+4、使用Beyond Compare比较当前仓库修改
+
+仅适应于：只是文件内容修改，不牵扯到重命名、git add等，也即仅比较not staged commit
+
+```shell
+GDF
+```
+
+
+
+4、使用Beyond Compare
+
+```shell
+# 进查看当前内容修改，包含staged、not staged，使用以下命令不加参数即可
+GBC
+
+# 查看历史提交修改，则传图commit，如
+GBC fb120bd15462583e8656158c75f9e9a1ef046869
+```
+
+
+
+5、使用tig查看git log，在界面内切换到要view diff的commit，按快捷键v，自动调用GBC ${commit_id}
+
+```shell
+tig
+```
+

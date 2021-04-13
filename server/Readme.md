@@ -1,7 +1,7 @@
 ## 使用方法
 1、双击运行，首次运行后，界面如下：
 
-![](https://jijiantuku-image.oss-cn-beijing.aliyuncs.com/markdown_img/2021/03/25/20210325_175552_32ef1f0e7d450ede8493694cf41306ae.png)
+![](https://jijiantuku-image.oss-cn-beijing.aliyuncs.com/markdown_img/2021/04/13/20210413_190246_a0a5b2b1cb85a46500c2d757fff5e0a9.png)
 
 如果出现以下提示，则选中三个框后点击允许：
 
@@ -15,13 +15,21 @@
 
 选择完成后界面如下：
 
-![](https://jijiantuku-image.oss-cn-beijing.aliyuncs.com/markdown_img/2021/03/25/20210325_175934_f4e075ddb4763965c8e45f7c0b3a6829.png)
+![](https://jijiantuku-image.oss-cn-beijing.aliyuncs.com/markdown_img/2021/04/13/20210413_190325_2e200dcc2d5befe2bf92055547cd1d72.png)
+
+
+
+同理，选择Beyond Compare路径，如下：
+
+![](https://jijiantuku-image.oss-cn-beijing.aliyuncs.com/markdown_img/2021/04/13/20210413_190425_9b8eee911463e894580032c3eb17f5c4.png)
 
 点击启动按钮后，界面如下：
 
-![](https://jijiantuku-image.oss-cn-beijing.aliyuncs.com/markdown_img/2021/03/25/20210325_175954_2423c3930bd18081a590e2b7c240d121.png)
+![](https://jijiantuku-image.oss-cn-beijing.aliyuncs.com/markdown_img/2021/04/13/20210413_190435_c125b24b236d215d16802dea3b4c2e2d.png)
 
 至此服务启动成功
+
+
 
 
 
