@@ -1,0 +1,9 @@
+#!/bin/sh
+
+PATCH_FILE=$1
+
+[ "x${PATCH_FILE}" != "x" ] || exit 1
+
+git am --ignore-whitespace $1 || exit 1
+
+exit 0
